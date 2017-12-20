@@ -21,22 +21,34 @@ def openfiles():
 
 # In[ ]:
 
-def combinedlist(pattern, datalen, exportfile, sequenceColumn, addColumn):
+def combinedlist(pattern, exportfile, sequenceColumn, addColumn):
     #calling the first function
     filegroup = openfiles()
-    matchlist = []
+    matchlist = {}
     #Reading in the chosen csv file, selecting necessary columns, and adding it to a list
     for file in filegroup:
         new_df = pd.read_csv(file)
-        new_df["File Name 1"] = os.path.split(file)[1]
+        filename = os.path.split(file)[1]
+        new_df["File Name 1"] = filename
         new_df = new_df[["File Name 1", sequenceColumn, addColumn]]
-        matchlist.append(new_df)
+        matchlist[filename] = new_df
     #Return peptide sequences that doesn't match the regex pattern
-    for df1 in matchlist:
-        df1 = df1.loc[0:datalen]
-    final_df = df1[~df1.Sequence.str.contains(pattern)]
-    final_df.to_csv(exportfile, encoding='utf-8', index=False)
-    return final_df
+    sieved_dataframes = {}
+    for filename, df in matchlist.iteritems:
+        sieved_df = df[~df.Sequence.str.contains(pattern)]
+
+        write_sieved_dataframe_to_csv(sieved_dataframes, exportfile, filename)
+
+        sieved_dataframes[filename] = sieved_df
+    return sieved_dataframes
+
+
+def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):
+    sieved_filename = "".join("sieved_", filename )
+
+
+    dataframe.to_csv(exportfile, encoding='utf-8', index=False)
+
 
 
 # In[ ]:

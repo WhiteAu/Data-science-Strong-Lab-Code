@@ -1,0 +1,7 @@
+[DEFAULT]
+input = C:/Users/Sujatha/Desktop/HLA_A11
+output = C:/Users/Sujatha/Desktop/example 2.csv
+
+[DATA DESCRIPTOR]
+sequenceColumn = Sequence
+addColumn = Protein Group Accessions
