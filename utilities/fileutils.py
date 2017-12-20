@@ -43,7 +43,8 @@ def matchlist(folderpath, exportfile, sequenceColumn, addColumn):
     #Merging the dataframes together and adding the occurences of each peptide.
     final_df = create_aggregate_dataframe(new_df, sequenceColumn, addColumn)
     #Exporting the final dataframe back into a csv file.
-    final_df.to_csv(exportfile, encoding='utf-8', index=False)
+    write_dataframe_to_csv(final_df, exportfile)
+
 
     return final_df
 
@@ -69,18 +70,30 @@ def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
 
     return new_df
 
-def combinedlist(pattern, datalen, exportfile, sequenceColumn, addColumn):
+def combinedlist(pattern, exportpath, sequenceColumn, addColumn):
     #calling the first function
     filegroup = openfiles()
-    matchlist = []
-
+    matchlist = {}
     #Reading in the chosen csv file, selecting necessary columns, and adding it to a list
     for file in filegroup:
-        new_df = make_file_referenced_df_from_csv(file, sequenceColumn, addColumn)
-        matchlist.append(new_df)
+        filename = os.path.split(file)[1]
+        matchlist[filename] = make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn)
     #Return peptide sequences that doesn't match the regex pattern
-    for df1 in matchlist:
-        df1 = df1.loc[0:datalen]
-    final_df = df1[~df1.Sequence.str.contains(pattern)]
-    final_df.to_csv(exportfile, encoding='utf-8', index=False)
-    return final_df
+    sieved_dataframes = {}
+    for filename, df in matchlist.iteritems:
+        sieved_df = df[~df.Sequence.str.contains(pattern)]
+
+        write_sieved_dataframe_to_csv(sieved_dataframes, exportpath, filename)
+
+        sieved_dataframes[filename] = sieved_df
+    return sieved_dataframes
+
+
+def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):
+    sieved_filename = "".join("sieved_", filename )
+
+    exportfile = os.path.join(outputpath, sieved_filename)
+    write_dataframe_to_csv(dataframe, exportfile)
+
+def write_dataframe_to_csv(dataframe, filename):
+    dataframe.to_csv(filename, encoding='utf-8', index=False)

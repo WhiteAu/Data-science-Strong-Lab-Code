@@ -22,12 +22,12 @@ class TestFileFunctions(unittest.TestCase):
                   'agg': [10, 20, 20, 30]
                   }
         referenced_frame1 = {
-                  'sequence': ['foo', 'bar' '13@z'],
+                  'sequence': ['foo', 'bar', '13@z'],
                   'File Name 1': ['cats.csv', 'cats.csv', 'cats.csv'],
                   'agg': [3, 20, 10]
                   }
         referenced_frame2 = {
-            'sequence': ['foo', 'fizz' 'rot13'],
+            'sequence': ['foo', 'fizz', 'rot13'],
             'File Name 1': ['dogs.csv', 'dogs.csv', 'dogs.csv'],
             'agg': [3, 20, 10]
         }
@@ -85,15 +85,18 @@ class TestFileFunctions(unittest.TestCase):
         stump_df = Mock()
         mock_agg_frame.return_value = stump_df
 
+        fu.matchlist('~/smith', '~smith/output', 'sequence', 'agg')
+
+        assert mock_agg_frame.called
+
+    def test_write_dataframe_to_csv(self):
         with patch.object(fu.pd.DataFrame, "to_csv") as mocked_writer:
-
+            stump_df = Mock()
             stump_df.to_csv = mocked_writer
-
-            fu.matchlist('~/smith', '~smith/output', 'sequence', 'agg')
+            fu.write_dataframe_to_csv(stump_df, "foo.csv")
 
             mocked_writer.assert_called_once()
 
-        assert mock_agg_frame.called
 
 
     def test_aggregate_frame_happy_case(self):
@@ -103,9 +106,10 @@ class TestFileFunctions(unittest.TestCase):
 
         self.assertEquals(expected_result.equals(actual_result), True)
 
+
     @patch('utilities.fileutils.make_file_referenced_df_from_csv')
     @patch('utilities.fileutils.openfiles')
-    def test_combinedlist_happy_case(self, mock_get_files, mocked_reader, mock_make_df):
+    def test_combinedlist_happy_case(self, mock_get_files, mock_make_df):
         mock_get_files.return_value = [self.CSV_ONE, self.CSV_TWO]
         mock_make_df.side_effect = lambda key: self.DF_NAME_TO_DATAFRAME[key]
 

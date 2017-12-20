@@ -1,6 +1,6 @@
 [DEFAULT]
 input = C:/Users/Sujatha/Desktop/HLA_A11
-output = C:/Users/Sujatha/Desktop/example 2.csv
+output = C:/Users/Sujatha/Desktop/
 
 [DATA DESCRIPTOR]
 sequenceColumn = Sequence
