@@ -1,6 +1,6 @@
 [DEFAULT]
-input = C:/Users/Sujatha/Desktop/HLA_A11
-output = C:/Users/Sujatha/Desktop/
+input = C:\Users\whiteau\Documents\GitHub\Data-science-Strong-Lab-Code\input
+output = C:\Users\whiteau\Documents\GitHub\Data-science-Strong-Lab-Code\output
 
 [DATA DESCRIPTOR]
 sequenceColumn = Sequence
