@@ -5,6 +5,8 @@ import pandas as pd
 from tkinter import filedialog, Tk
 from typing import List
 
+FILE_NAME_HEADER = "File Name"
+
 def return_filetype_list(folderpath, filetype=".csv"):
     '''
     Returns a list of all files that match a given filetype
@@ -49,13 +51,27 @@ def matchlist(folderpath, exportfile, sequenceColumn, addColumn):
     return final_df
 
 def create_aggregate_dataframe(frames : List[pd.DataFrame], sequenceColumn, addColumn, *args, **kwargs) -> pd.DataFrame:
+    concat_frames = pd.concat(frames)
+    grouped_sequence_frame = concat_frames.groupby([sequenceColumn])
+    grouped_sequence_frame = grouped_sequence_frame.agg({sequenceColumn: 'size'})\
+                                                   .rename(columns={sequenceColumn: 'Occurrence'})\
+                                                   .reset_index()
+
+
+
     agg_frame = pd.concat(frames).groupby([sequenceColumn, addColumn]) \
                                  .agg({sequenceColumn: 'size'}) \
-                                 .rename(columns={sequenceColumn: 'Occurence'}) \
+                                 .rename(columns={sequenceColumn: 'Occurrence'}) \
                                  .reset_index() \
-                                 .sort_values(by=['Occurence', addColumn], ascending=[False, True]) \
-                                 .reset_index(drop=True)
-    return agg_frame
+                                 .pivot(index=sequenceColumn, columns=addColumn, values='Occurrence') \
+                                 .fillna(0) \
+                                 .reset_index()
+
+
+    final_frame = pd.merge(grouped_sequence_frame, agg_frame, on=sequenceColumn, how='left')
+
+    print(final_frame)
+    return final_frame
 
 def openfiles():
     root = Tk()
@@ -65,8 +81,8 @@ def openfiles():
 
 def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
     new_df = pd.read_csv(filename)
-    new_df["File Name 1"] = os.path.split(filename)[1]
-    new_df = new_df[["File Name 1", sequenceColumn, addColumn]]
+    new_df[FILE_NAME_HEADER] = os.path.split(filename)[1]
+    new_df = new_df[[FILE_NAME_HEADER, sequenceColumn, addColumn]]
 
     return new_df
 
@@ -86,7 +102,21 @@ def combinedlist(pattern, exportpath, sequenceColumn, addColumn):
         write_sieved_dataframe_to_csv(sieved_dataframes, exportpath, filename)
 
         sieved_dataframes[filename] = sieved_df
+
     return sieved_dataframes
+
+def write_sieved_dataframe_dict_to_csv(df_dict, outputpath, filename):
+    sieved_filename = "".join("sieved_compilation_", filename)
+
+    exportfile = os.path.join(outputpath, sieved_filename)
+
+    collapsed_frame = pd.DataFrame()
+    for name, df in df_dict.iteritems():
+        named_df = df
+        named_df[FILE_NAME_HEADER] = name
+        collapsed_frame.append(named_df)
+
+    write_dataframe_to_csv(collapsed_frame, exportfile)
 
 
 def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):

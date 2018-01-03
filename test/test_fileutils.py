@@ -16,26 +16,29 @@ class TestFileFunctions(unittest.TestCase):
         self.XLS_ONE = '~/smith/fish.xls'
 
         frame1 = {'sequence': [3, 2, 1],
-                  'agg': [ 3, 20, 10]
+                  'agg': [ 3, 20, 10],
+                  'file': ['cats.csv', 'cats.csv', 'cats.csv']
                   }
-        frame2 = {'sequence': [3, 2, 2, 1],
-                  'agg': [10, 20, 20, 30]
+        frame2 = {'sequence': [2, 2, 1],
+                  'agg': [20, 20, 30],
+                  'file': ['dogs.csv', 'dogs.csv', 'dogs.csv']
                   }
         referenced_frame1 = {
                   'sequence': ['foo', 'bar', '13@z'],
-                  'File Name 1': ['cats.csv', 'cats.csv', 'cats.csv'],
+                  'file': ['cats.csv', 'cats.csv', 'cats.csv'],
                   'agg': [3, 20, 10]
                   }
         referenced_frame2 = {
             'sequence': ['foo', 'fizz', 'rot13'],
-            'File Name 1': ['dogs.csv', 'dogs.csv', 'dogs.csv'],
+            'file': ['dogs.csv', 'dogs.csv', 'dogs.csv'],
             'agg': [3, 20, 10]
         }
 
         expected_agg_frame = {
-            'sequence': [2, 3, 1, 3, 1],
-            'agg': [20, 3, 10, 10, 30],
-            'Occurence': [3, 1, 1, 1, 1]
+            'sequence': [1, 2, 3],
+            'Occurrence': [2, 3, 1],
+            'cats.csv': [1, 1, 1],
+            'dogs.csv': [1, 2, 0]
         }
 
         self.PD_DF1 = pd.DataFrame(frame1)
@@ -100,11 +103,15 @@ class TestFileFunctions(unittest.TestCase):
 
 
     def test_aggregate_frame_happy_case(self):
-        actual_result = fu.create_aggregate_dataframe([self.PD_DF1, self.PD_DF2], 'sequence', 'agg')
-        expected_result = self.PD_AGG_DF1.sort_values(by=['Occurence', 'agg'], ascending=[False, True])
-        expected_result = expected_result[['sequence', 'agg', 'Occurence']] #column order was affecting equality check; this will make fragile if more columns are added.
+        actual_result = fu.create_aggregate_dataframe([self.PD_DF1, self.PD_DF2], 'sequence', 'file')
+        expected_result = self.PD_AGG_DF1.sort_values(by=['sequence'], ascending=[True])
+        expected_result = expected_result[['sequence', 'Occurrence',  'cats.csv',  'dogs.csv']] #column order was affecting equality check; this will make fragile if more columns are added.
 
-        self.assertEquals(expected_result.equals(actual_result), True)
+        for i in range(expected_result.shape[0]):
+            self.assertEquals(expected_result.iloc[i]['sequence'], actual_result.iloc[i]['sequence'])
+            self.assertEquals(expected_result.iloc[i]['Occurrence'], actual_result.iloc[i]['Occurrence'])
+            self.assertEquals(expected_result.iloc[i]['cats.csv'], actual_result.iloc[i]['cats.csv'])
+            self.assertEquals(expected_result.iloc[i]['dogs.csv'], actual_result.iloc[i]['dogs.csv'])
 
 
     @patch('utilities.fileutils.make_file_referenced_df_from_csv')

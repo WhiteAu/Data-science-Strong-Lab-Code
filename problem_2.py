@@ -28,8 +28,8 @@ def combinedlist(pattern, datalen, exportfile, sequenceColumn, addColumn):
     #Reading in the chosen csv file, selecting necessary columns, and adding it to a list
     for file in filegroup:
         new_df = pd.read_csv(file)
-        new_df["File Name 1"] = os.path.split(file)[1]
-        new_df = new_df[["File Name 1", sequenceColumn, addColumn]]
+        new_df["File Name"] = os.path.split(file)[1]
+        new_df = new_df[["File Name", sequenceColumn, addColumn]]
         matchlist.append(new_df)
     #Return peptide sequences that doesn't match the regex pattern
     for df1 in matchlist:

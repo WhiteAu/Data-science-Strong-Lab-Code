@@ -37,7 +37,7 @@ configFilePath = 'config'
 config.read(configFilePath)
 
 
-cmd_arg_parser = argparse.ArgumentParser("problem_1: aggregates occurences of Sequence/Accessions and outputs as a csv to the specified folder.")
+cmd_arg_parser = argparse.ArgumentParser("problem_1: aggregates occurrences of Sequence/Accessions and outputs as a csv to the specified folder.")
 cmd_arg_parser.add_argument('-t', action="store_true", default=False,
                             dest="is_test",
                             help="Set mode to test. There will be additional debug information and no computationally expensive functions will be run.")
