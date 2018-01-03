@@ -1,9 +1,14 @@
+import logging
 import os
 
 import pandas as pd
 
 from tkinter import filedialog, Tk
 from typing import List
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 FILE_NAME_HEADER = "File Name"
 
@@ -86,32 +91,33 @@ def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
 
     return new_df
 
-def combinedlist(pattern, exportpath, sequenceColumn, addColumn):
+def combinedlist(pattern, sequenceColumn, addColumn):
     #calling the first function
     filegroup = openfiles()
     matchlist = {}
+    logger.info("returned filegroup was {}".format(filegroup))
     #Reading in the chosen csv file, selecting necessary columns, and adding it to a list
     for file in filegroup:
+        logger.info("returned file was {}".format(file))
         filename = os.path.split(file)[1]
-        matchlist[filename] = make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn)
+        logger.info("split filename was {}".format(filename))
+        matchlist[filename] = make_file_referenced_df_from_csv(file, sequenceColumn, addColumn)
     #Return peptide sequences that doesn't match the regex pattern
     sieved_dataframes = {}
-    for filename, df in matchlist.iteritems:
+    for filename, df in matchlist.items():
         sieved_df = df[~df.Sequence.str.contains(pattern)]
-
-        write_sieved_dataframe_to_csv(sieved_dataframes, exportpath, filename)
 
         sieved_dataframes[filename] = sieved_df
 
     return sieved_dataframes
 
 def write_sieved_dataframe_dict_to_csv(df_dict, outputpath, filename):
-    sieved_filename = "".join("sieved_compilation_", filename)
+    sieved_filename = "".join(["sieved_compilation_", filename])
 
     exportfile = os.path.join(outputpath, sieved_filename)
 
     collapsed_frame = pd.DataFrame()
-    for name, df in df_dict.iteritems():
+    for name, df in df_dict.items():
         named_df = df
         named_df[FILE_NAME_HEADER] = name
         collapsed_frame.append(named_df)
@@ -126,4 +132,5 @@ def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):
     write_dataframe_to_csv(dataframe, exportfile)
 
 def write_dataframe_to_csv(dataframe, filename):
+    logger.info("writing csv output to file: {}".format(filename))
     dataframe.to_csv(filename, encoding='utf-8', index=False)
