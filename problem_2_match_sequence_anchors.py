@@ -29,21 +29,7 @@ EXECUTION_TYPE_TO_LOGGER_LEVEL = {
 config = configparser.ConfigParser()
 configFilePath = 'config'
 config.read(configFilePath)
-
-
-cmd_arg_parser = argparse.ArgumentParser("problem_2: screens a given directories' CSV files for compliance with a given regular expression")
-cmd_arg_parser.add_argument('-t', action="store_true", default=False,
-                            dest="is_test",
-                            help="Set mode to test. There will be additional debug information and no computationally expensive functions will be run.")
-cmd_arg_parser.add_argument('--folder',
-                            action="store",
-                            dest="file_dir",
-                            help="Load CSV's from supplied directory.  by default this defaults to {}".format(config['DEFAULT']['input']))
-cmd_arg_parser.add_argument('--output',
-                            action="store",
-                            dest="output_dir",
-                            help="Target file and location to write results out to. by default this defaults to {}".format(config['DEFAULT']['output']))
-
+cmd_arg_parser = fileutils.make_cmd_arg_parser("problem_2: screens a given directories' CSV files for compliance with a given regular expression", config)
 
 cmd_args = cmd_arg_parser.parse_args()
 
@@ -68,7 +54,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 #(regex pattern, number of rows with data minus 2, name of the peptide sequence column, name of the protein group accessions column)
 #pattern for HLA-A11 is r'\b.[VIFY][MLFYIA]\w+[LIYVF].[KR]\b'
 #pattern for HLA-A24 is r'\b.[YF]\w+[LFI]\b'
-sieved_dataframes = fileutils.combinedlist(r'\b.[VIFY][MLFYIA]\w+[LIYVF].[KR]\b',  "Sequence", "Protein Group Accessions")
+sieved_dataframes = fileutils.create_anchor_match_dataframes(r'\b.[VIFY][MLFYIA]\w+[LIYVF].[KR]\b', "Sequence", "Protein Group Accessions")
 logger.info("returned dataframes were: {}".format(sieved_dataframes))
 
 if exe_mode == ExecutionType.PRODUCTION:
