@@ -1,4 +1,5 @@
 import unittest
+import os
 
 import utilities.fileutils as fu
 import pandas as pd
@@ -11,15 +12,15 @@ class TestFileFunctions(unittest.TestCase):
 
 
     def setUp(self):
-        self.CSV_ONE = '~/smith/cats.csv'
-        self.CSV_TWO = '~/smith/dogs.csv'
-        self.XLS_ONE = '~/smith/fish.xls'
+        self.CSV_ONE = 'cats.csv'
+        self.CSV_TWO = 'dogs.csv'
+        self.XLS_ONE = 'fish.xls'
 
-        frame1 = {'sequence': [3, 2, 1],
+        frame1 = {'sequence': ['c', 'b', 'a'],
                   'agg': [ 3, 20, 10],
                   'file': ['cats.csv', 'cats.csv', 'cats.csv']
                   }
-        frame2 = {'sequence': [2, 2, 1],
+        frame2 = {'sequence': ['b', 'b', 'a'],
                   'agg': [20, 20, 30],
                   'file': ['dogs.csv', 'dogs.csv', 'dogs.csv']
                   }
@@ -34,8 +35,20 @@ class TestFileFunctions(unittest.TestCase):
             'agg': [3, 20, 10]
         }
 
+        referenced_3_frame1 = {
+            'sequence': ['foo', 'bar'],
+            'file': ['cats.csv', 'cats.csv'],
+            'agg': [3, 20]
+        }
+
+        referenced_4_frame1 = {
+            'sequence': ['13@z'],
+            'file': ['cats.csv'],
+            'agg': [10]
+        }
+
         expected_agg_frame = {
-            'sequence': [1, 2, 3],
+            'sequence': ['a', 'b', 'c'],
             'Occurrence': [2, 3, 1],
             'cats.csv': [1, 1, 1],
             'dogs.csv': [1, 2, 0]
@@ -45,6 +58,8 @@ class TestFileFunctions(unittest.TestCase):
         self.PD_DF2 = pd.DataFrame(frame2)
         self.PD_RDF1 = pd.DataFrame(referenced_frame1)
         self.PD_RDF2 = pd.DataFrame(referenced_frame2)
+        self.PD_RD3DF1 = pd.DataFrame(referenced_3_frame1)
+        self.PD_RD4DF1 = pd.DataFrame(referenced_4_frame1)
         self.PD_AGG_DF1 = pd.DataFrame(expected_agg_frame)
 
         self.DF_NAME_TO_DATAFRAME = {
@@ -65,15 +80,17 @@ class TestFileFunctions(unittest.TestCase):
 
         self.FILEPATH = '~/smith/'
 
-    @patch('utilities.fileutils.os')
-    def test_return_filetype_list_happy_case(self, mock_os):
-        mock_os.fsencode.return_value = self.FILEPATH
-        mock_os.listdir.return_value = self.RETURNED_FILELIST
+    @patch('utilities.fileutils.os.listdir')
+    @patch('utilities.fileutils.os.fsencode')
+    def test_return_filetype_list_happy_case(self, mock_os_fsencode, mock_os_listdir):
+        mock_os_fsencode.return_value = self.FILEPATH
+        mock_os_listdir.return_value = self.RETURNED_FILELIST
 
-        expected_value = [self.CSV_ONE, self.CSV_TWO]
+        expected_value = [os.path.sep.join([self.FILEPATH, self.CSV_ONE]),
+                          os.path.sep.join([self.FILEPATH, self.CSV_TWO])]
         actual_value = fu.return_filetype_list(self.FILEPATH, filetype=".csv")
 
-        mock_os.listdir.assert_called_with(self.FILEPATH)
+        mock_os_listdir.assert_called_with(self.FILEPATH)
 
         self.assertEquals(actual_value, expected_value, "return file type returns only files with specified type" )
 
@@ -81,14 +98,14 @@ class TestFileFunctions(unittest.TestCase):
     @patch('utilities.fileutils.pd.read_csv')
     @patch('utilities.fileutils.create_aggregate_dataframe')
     @patch('utilities.fileutils.return_filetype_list')
-    def test_matchlist(self, mock_get_files, mock_agg_frame, mocked_reader):
+    def test_aggregate_sequence_occurence_by_length_happy_case(self, mock_get_files, mock_agg_frame, mocked_reader):
         mock_get_files.return_value = [self.CSV_ONE, self.CSV_TWO]
         mocked_reader.side_effect = lambda key: self.DF_NAME_TO_DATAFRAME[key]
 
         stump_df = Mock()
         mock_agg_frame.return_value = stump_df
 
-        fu.matchlist('~/smith', '~smith/output', 'sequence', 'agg')
+        fu.aggregate_sequence_occurence_by_length('~/smith', 'sequence', 'agg')
 
         assert mock_agg_frame.called
 
@@ -103,7 +120,8 @@ class TestFileFunctions(unittest.TestCase):
 
 
     def test_aggregate_frame_happy_case(self):
-        actual_result = fu.create_aggregate_dataframe([self.PD_DF1, self.PD_DF2], 'sequence', 'file')
+        test_input = pd.concat([self.PD_DF1, self.PD_DF2])
+        actual_result = fu.create_aggregate_dataframe(test_input, 'sequence', 'file')
         expected_result = self.PD_AGG_DF1.sort_values(by=['sequence'], ascending=[True])
         expected_result = expected_result[['sequence', 'Occurrence',  'cats.csv',  'dogs.csv']] #column order was affecting equality check; this will make fragile if more columns are added.
 
@@ -120,6 +138,15 @@ class TestFileFunctions(unittest.TestCase):
         mock_get_files.return_value = [self.CSV_ONE, self.CSV_TWO]
         mock_make_df.side_effect = lambda key: self.DF_NAME_TO_DATAFRAME[key]
 
+    def test_split_df_by_col_length_happy_case(self):
+        expected_result = {3: self.PD_RD3DF1, 4: self.PD_RD4DF1}
+        actual_result = fu.split_df_by_col_length(self.PD_RDF1, "sequence")
 
+        self.assertEqual(expected_result.keys(), actual_result.keys())
 
+        for key in expected_result.keys():
+            for i in range(expected_result[key].shape[0]):
+                self.assertEquals(expected_result[key].iloc[i]['sequence'], actual_result[key].iloc[i]['sequence'])
+                self.assertEquals(expected_result[key].iloc[i]['file'], actual_result[key].iloc[i]['file'])
+                self.assertEquals(expected_result[key].iloc[i]['agg'], actual_result[key].iloc[i]['agg'])
 

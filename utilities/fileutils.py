@@ -1,3 +1,5 @@
+import argparse
+import configparser
 import logging
 import os
 
@@ -12,12 +14,33 @@ logger.setLevel(logging.DEBUG)
 
 FILE_NAME_HEADER = "File Name"
 
+def make_cmd_arg_parser(description, configparser):
+
+
+    cmd_arg_parser = argparse.ArgumentParser(description)
+    cmd_arg_parser.add_argument('-t', action="store_true", default=False,
+                                dest="is_test",
+                                help="Set mode to test. There will be additional debug information and no computationally expensive functions will be run.")
+    cmd_arg_parser.add_argument('--folder',
+                                action="store",
+                                dest="file_dir",
+                                help="Load CSV's from supplied directory.  by default this defaults to {}".format(
+                                    configparser['DEFAULT']['input']))
+    cmd_arg_parser.add_argument('--output',
+                                action="store",
+                                dest="output_dir",
+                                help="Target file and location to write results out to. by default this defaults to {}".format(
+                                    configparser['DEFAULT']['output']))
+
+    return cmd_arg_parser
+
+
 def return_filetype_list(folderpath, filetype=".csv"):
     '''
     Returns a list of all files that match a given filetype
 
     :param folderpath: the absolute path to the folder to check
-    :param filetype: the file suffix to check and return. Defaults to .csv
+    :param filetype: the file suffikey to check and return. Defaults to .csv
     :return: a list of filename strings
     '''
     filelist = []
@@ -27,44 +50,70 @@ def return_filetype_list(folderpath, filetype=".csv"):
     for file in os.listdir(folderpath):
         #filename = os.fsdecode(file)
         if file.endswith(filetype):
-            filelist.append(file)
+            filelist.append(os.path.sep.join([folderpath, file]))
     return filelist
 
 
-def matchlist(folderpath, exportfile, sequenceColumn, addColumn):
+def aggregate_sequence_occurence_by_length(folderpath, sequenceColumn, addColumn, *args, **kwargs):
     '''
 
     :param folderpath: path to the directory containing the csv's to aggregate
-    :param exportfile: the absolute path to the file to export aggregate dataframe to as a csv
+
     :param sequenceColumn: the name of the sequence column
     :param addColumn: the name of the column to aggregate
     :return: a copy of the aggregate dataframe
     '''
     #calling the first function
     filelist = return_filetype_list(folderpath, filetype=".csv")
-    new_df = []
+    aggregate_df = []
     #Reads in the content of the csv files from the list and adds the content into a new list.
     for file in filelist:
         df1 = pd.read_csv(file)
-        new_df.append(df1)
-    #Merging the dataframes together and adding the occurences of each peptide.
-    final_df = create_aggregate_dataframe(new_df, sequenceColumn, addColumn)
-    #Exporting the final dataframe back into a csv file.
-    write_dataframe_to_csv(final_df, exportfile)
+        filename = os.path.split(file)[1]
+        if "abs_path" in kwargs.keys():
+            filename = file
+        df1[FILE_NAME_HEADER] = filename
+        aggregate_df.append(df1)
+
+    aggregate_df = pd.concat(aggregate_df)
+    #re-split dataframe by sequence length
+    sequence_dfs = split_df_by_col_length(aggregate_df, sequenceColumn)
+
+    # Merging the dataframes together and adding the occurences of each peptide.
+    for key, df in sequence_dfs.items():
+        sequence_dfs[key] = create_aggregate_dataframe(df, sequenceColumn, FILE_NAME_HEADER)
+
+    return sequence_dfs
+
+def split_df_by_col_length(df, column_to_split):
+    length_col ="_".join([column_to_split, 'length'])
+    logger.info("{} called with column: {}".format(__name__, column_to_split))
+    logger.info("Length Column is {}".format(length_col))
+    logger.info("split column head: {}".format(df[column_to_split].head()))
+    df[length_col] = df[column_to_split].str.len()
+
+    split_dfs = split(df, length_col)
+
+    return split_dfs
 
 
-    return final_df
+def split(df, group):
+    gb = df.groupby(group)
+    #return [gb.get_group(x) for x in gb.groups]
+    return {key: gb.get_group(key) for key in gb.groups}
 
-def create_aggregate_dataframe(frames : List[pd.DataFrame], sequenceColumn, addColumn, *args, **kwargs) -> pd.DataFrame:
-    concat_frames = pd.concat(frames)
-    grouped_sequence_frame = concat_frames.groupby([sequenceColumn])
+
+
+def create_aggregate_dataframe(frame : pd.DataFrame, sequenceColumn, addColumn, *args, **kwargs) -> pd.DataFrame:
+
+    grouped_sequence_frame = frame.groupby([sequenceColumn])
     grouped_sequence_frame = grouped_sequence_frame.agg({sequenceColumn: 'size'})\
                                                    .rename(columns={sequenceColumn: 'Occurrence'})\
                                                    .reset_index()
 
 
 
-    agg_frame = pd.concat(frames).groupby([sequenceColumn, addColumn]) \
+    agg_frame = frame.groupby([sequenceColumn, addColumn]) \
                                  .agg({sequenceColumn: 'size'}) \
                                  .rename(columns={sequenceColumn: 'Occurrence'}) \
                                  .reset_index() \
@@ -91,7 +140,7 @@ def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
 
     return new_df
 
-def combinedlist(pattern, sequenceColumn, addColumn):
+def create_anchor_match_dataframes(pattern, sequenceColumn, addColumn):
     #calling the first function
     filegroup = openfiles()
     matchlist = {}
@@ -130,6 +179,7 @@ def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):
 
     exportfile = os.path.join(outputpath, sieved_filename)
     write_dataframe_to_csv(dataframe, exportfile)
+
 
 def write_dataframe_to_csv(dataframe, filename):
     logger.info("writing csv output to file: {}".format(filename))

@@ -7,7 +7,7 @@ import logging
 import os
 
 from utilities.execution_modes import ExecutionType
-from utilities.fileutils import matchlist
+import utilities.fileutils as fileutils
 
 
 X_FEATURE = 'x'
@@ -29,27 +29,10 @@ EXECUTION_TYPE_TO_LOGGER_LEVEL = {
     }
 
 
-
-
-
 config = configparser.ConfigParser()
 configFilePath = 'config'
 config.read(configFilePath)
-
-
-cmd_arg_parser = argparse.ArgumentParser("problem_1: aggregates occurrences of Sequence/Accessions and outputs as a csv to the specified folder.")
-cmd_arg_parser.add_argument('-t', action="store_true", default=False,
-                            dest="is_test",
-                            help="Set mode to test. There will be additional debug information and no computationally expensive functions will be run.")
-cmd_arg_parser.add_argument('--folder',
-                            action="store",
-                            dest="file_dir",
-                            help="Load CSV's from supplied directory.  by default this defaults to {}".format(config['DEFAULT']['input']))
-cmd_arg_parser.add_argument('--output',
-                            action="store",
-                            dest="output_dir",
-                            help="Target file and location to write results out to. by default this defaults to {}".format(config['DEFAULT']['output']))
-
+cmd_arg_parser = fileutils.make_cmd_arg_parser("problem_1: aggregates occurrences of Sequence/Accessions and outputs as a csv to the specified folder.", config)
 
 cmd_args = cmd_arg_parser.parse_args()
 
@@ -71,14 +54,20 @@ if cmd_args.output_dir != None:
 script_path = os.path.dirname(os.path.realpath(__file__))
 
 
-if exe_mode == ExecutionType.PRODUCTION:
 
-    logger.info("matchlist called with file directory: {} output file: {} sequenceColumn: {}, addColumn: {}".format(file_directory,
+logger.info("matchlist called with file directory: {} output file: {} sequenceColumn: {}, addColumn: {}".format(file_directory,
                                                                                                                     output_path,
                                                                                                                     config["DATA DESCRIPTOR"]["sequenceColumn"],
                                                                                                                     config["DATA DESCRIPTOR"]["addColumn"]))
 
-    # (folder path, output file path, name of the peptide sequence column, name of the protein group accessions column)
-    matchlist(file_directory, output_path, config["DATA DESCRIPTOR"]["sequenceColumn"],
-              config["DATA DESCRIPTOR"]["addColumn"])
+# (folder path, output file path, name of the peptide sequence column, name of the protein group accessions column)
+matched_dataframes_by_length = fileutils.aggregate_sequence_occurence_by_length(file_directory, config["DATA DESCRIPTOR"]["sequenceColumn"], config["DATA DESCRIPTOR"]["addColumn"])
+
+#Exporting the final dataframes back into a csv file.
+for sequence_length, matched_dataframe in matched_dataframes_by_length.items():
+    exportfile = os.path.join(output_path, "sequence_length_{}_matched_csv_list".format(sequence_length))
+    print("exportfile was {}".format(exportfile))
+    if exe_mode == ExecutionType.PRODUCTION:
+        fileutils.write_dataframe_to_csv(matched_dataframe, exportfile)
+
 
