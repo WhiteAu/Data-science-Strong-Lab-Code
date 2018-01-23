@@ -117,7 +117,19 @@ class TestFileFunctions(unittest.TestCase):
 
             mocked_writer.assert_called_once()
 
+    def test_create_match_dataframe_single_pattern(self):
+        pattern_list = ["^f"]
+        all, some, none_df = fu.create_match_dataframe(pattern_list, self.PD_RDF1, 'sequence')
+        print("all was : {}".format(all))
+        print("some was : {}".format(some))
+        print("none_df was : {}".format(none_df))
 
+    def test_create_match_dataframe_happy_case(self):
+        pattern_list = ["^[a-z]", "^f"]
+        all, some, none_df = fu.create_match_dataframe(pattern_list, self.PD_RDF1, 'sequence')
+        print("all was : {}".format(all))
+        print("some was : {}".format(some))
+        print("none_df was : {}".format(none_df))
 
     def test_aggregate_frame_happy_case(self):
         test_input = pd.concat([self.PD_DF1, self.PD_DF2])

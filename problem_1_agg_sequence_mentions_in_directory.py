@@ -10,8 +10,6 @@ from utilities.execution_modes import ExecutionType
 import utilities.fileutils as fileutils
 
 
-X_FEATURE = 'x'
-
 formatter = logging.Formatter(
     "%(asctime)s %(threadName)-11s %(levelname)-10s %(message)s")
 
@@ -61,7 +59,7 @@ logger.info("matchlist called with file directory: {} output file: {} sequenceCo
                                                                                                                     config["DATA DESCRIPTOR"]["addColumn"]))
 
 # (folder path, output file path, name of the peptide sequence column, name of the protein group accessions column)
-matched_dataframes_by_length = fileutils.aggregate_sequence_occurence_by_length(file_directory, config["DATA DESCRIPTOR"]["sequenceColumn"], config["DATA DESCRIPTOR"]["addColumn"])
+matched_dataframes_by_length = fileutils.aggregate_sequence_occurence_by_length(file_directory, config["DATA DESCRIPTOR"]["sequenceColumn"])
 
 #Exporting the final dataframes back into a csv file.
 for sequence_length, matched_dataframe in matched_dataframes_by_length.items():

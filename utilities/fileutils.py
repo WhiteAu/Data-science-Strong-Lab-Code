@@ -1,5 +1,5 @@
 import argparse
-import configparser
+import collections
 import logging
 import os
 
@@ -54,13 +54,12 @@ def return_filetype_list(folderpath, filetype=".csv"):
     return filelist
 
 
-def aggregate_sequence_occurence_by_length(folderpath, sequenceColumn, addColumn, *args, **kwargs):
+def aggregate_sequence_occurence_by_length(folderpath, sequenceColumn, *args, **kwargs):
     '''
 
     :param folderpath: path to the directory containing the csv's to aggregate
 
     :param sequenceColumn: the name of the sequence column
-    :param addColumn: the name of the column to aggregate
     :return: a copy of the aggregate dataframe
     '''
     #calling the first function
@@ -140,7 +139,7 @@ def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
 
     return new_df
 
-def create_anchor_match_dataframes(pattern, sequenceColumn, addColumn):
+def create_anchor_match_dataframes(pattern_list, sequenceColumn, addColumn):
     #calling the first function
     filegroup = openfiles()
     matchlist = {}
@@ -154,11 +153,39 @@ def create_anchor_match_dataframes(pattern, sequenceColumn, addColumn):
     #Return peptide sequences that doesn't match the regex pattern
     sieved_dataframes = {}
     for filename, df in matchlist.items():
-        sieved_df = df[~df.Sequence.str.contains(pattern)]
+        all, some, none_df = create_match_dataframe(pattern_list, df, sequenceColumn)
+        all[FILE_NAME_HEADER] = filename
+        some[FILE_NAME_HEADER] = filename
+        none_df[FILE_NAME_HEADER] = filename
 
-        sieved_dataframes[filename] = sieved_df
 
     return sieved_dataframes
+
+def create_match_dataframe(pattern_list, df, sequenceColumn, all_criteria="pattern"):
+    sequenceList = set(df[sequenceColumn].unique())
+    some_match_sequences = collections.defaultdict(set)
+    none_match_sequences = set(df[sequenceColumn].unique())
+
+    for pattern in pattern_list:
+        sieved_df = df[df[sequenceColumn].str.contains(pattern)]
+        for sequence in sieved_df[sequenceColumn].unique():
+            some_match_sequences[sequence].add(pattern)
+            none_match_sequences.discard(sequence)
+
+    match_against = set(pattern_list)
+    if all_criteria == "sequence":
+        match_against = sequenceList
+
+    all_match_sequences = [sequence for sequence, values in some_match_sequences.items()
+                           if values == match_against]
+
+    all_df = df[df[sequenceColumn].isin(all_match_sequences)]
+    some_df = df[df[sequenceColumn].isin(some_match_sequences.keys())]
+    none_df = df[df[sequenceColumn].isin(none_match_sequences)]
+
+
+    return all_df, some_df, none_df
+
 
 def write_sieved_dataframe_dict_to_csv(df_dict, outputpath, filename):
     sieved_filename = "".join(["sieved_compilation_", filename])
@@ -182,5 +209,7 @@ def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):
 
 
 def write_dataframe_to_csv(dataframe, filename):
+    if not filename.endswith(".csv"):
+        filename = "".join([filename, ".csv"])
     logger.info("writing csv output to file: {}".format(filename))
     dataframe.to_csv(filename, encoding='utf-8', index=False)
