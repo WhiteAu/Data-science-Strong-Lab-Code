@@ -16,6 +16,10 @@ class TestFileFunctions(unittest.TestCase):
         self.CSV_TWO = 'dogs.csv'
         self.XLS_ONE = 'fish.xls'
 
+        self.AGG_DICT = {
+            'key1' : [1, 2, 3],
+            'key2' : [4, 5, 6]
+        }
         frame1 = {'sequence': ['c', 'b', 'a'],
                   'agg': [ 3, 20, 10],
                   'file': ['cats.csv', 'cats.csv', 'cats.csv']
@@ -96,7 +100,7 @@ class TestFileFunctions(unittest.TestCase):
 
 
     @patch('utilities.fileutils.pd.read_csv')
-    @patch('utilities.fileutils.create_aggregate_dataframe')
+    @patch('utilities.fileutils.create_aggregate_sequence_dataframe')
     @patch('utilities.fileutils.return_filetype_list')
     def test_aggregate_sequence_occurence_by_length_happy_case(self, mock_get_files, mock_agg_frame, mocked_reader):
         mock_get_files.return_value = [self.CSV_ONE, self.CSV_TWO]
@@ -119,21 +123,39 @@ class TestFileFunctions(unittest.TestCase):
 
     def test_create_match_dataframe_single_pattern(self):
         pattern_list = ["^f"]
-        all, some, none_df = fu.create_match_dataframe(pattern_list, self.PD_RDF1, 'sequence')
+        all, some, none_df = fu.create_match_dataframes(pattern_list, self.PD_RDF1, 'sequence')
         print("all was : {}".format(all))
         print("some was : {}".format(some))
         print("none_df was : {}".format(none_df))
 
     def test_create_match_dataframe_happy_case(self):
         pattern_list = ["^[a-z]", "^f"]
-        all, some, none_df = fu.create_match_dataframe(pattern_list, self.PD_RDF1, 'sequence')
+        all, some, none_df = fu.create_match_dataframes(pattern_list, self.PD_RDF1, 'sequence')
         print("all was : {}".format(all))
         print("some was : {}".format(some))
         print("none_df was : {}".format(none_df))
 
+    def test_make_columns_from_dict(self):
+        expected_result = pd.DataFrame({"keyz": ["key1", "key1", "key1", "key2", "key2", "key2"],
+                                        "vals": [1, 2, 3, 4, 5, 6]})
+        print(expected_result)
+        actual_result = fu.make_columns_from_dict(self.AGG_DICT,
+                                                  primary_col_name="keyz",
+                                                  secondary_col_name="vals")
+
+        print(expected_result.keys())
+        print(actual_result.keys())
+
+        self.assertEqual(list(expected_result.keys()), list(actual_result.keys()))
+
+        for i in range(expected_result.shape[0]):
+            self.assertEquals(expected_result.iloc[i]['keyz'], actual_result.iloc[i]['keyz'])
+            self.assertEquals(expected_result.iloc[i]['vals'], actual_result.iloc[i]['vals'])
+
+
     def test_aggregate_frame_happy_case(self):
         test_input = pd.concat([self.PD_DF1, self.PD_DF2])
-        actual_result = fu.create_aggregate_dataframe(test_input, 'sequence', 'file')
+        actual_result = fu.create_aggregate_sequence_dataframe(test_input, 'sequence', 'file')
         expected_result = self.PD_AGG_DF1.sort_values(by=['sequence'], ascending=[True])
         expected_result = expected_result[['sequence', 'Occurrence',  'cats.csv',  'dogs.csv']] #column order was affecting equality check; this will make fragile if more columns are added.
 

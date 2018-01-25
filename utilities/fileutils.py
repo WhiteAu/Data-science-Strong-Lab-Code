@@ -2,6 +2,7 @@ import argparse
 import collections
 import logging
 import os
+import random
 
 import pandas as pd
 
@@ -80,7 +81,7 @@ def aggregate_sequence_occurence_by_length(folderpath, sequenceColumn, *args, **
 
     # Merging the dataframes together and adding the occurences of each peptide.
     for key, df in sequence_dfs.items():
-        sequence_dfs[key] = create_aggregate_dataframe(df, sequenceColumn, FILE_NAME_HEADER)
+        sequence_dfs[key] = create_aggregate_sequence_dataframe(df, sequenceColumn, FILE_NAME_HEADER)
 
     return sequence_dfs
 
@@ -102,29 +103,97 @@ def split(df, group):
     return {key: gb.get_group(key) for key in gb.groups}
 
 
+def aggregate_and_pivot_dataframe_by_secondary_column(frame, primary, secondary, agg_col_name='Occurrence'):
+    '''
+    Take some frame, and make a pivoted (long) table of the aggregate of the primary column by the secondary column
 
-def create_aggregate_dataframe(frame : pd.DataFrame, sequenceColumn, addColumn, *args, **kwargs) -> pd.DataFrame:
+    :param frame:
+    :param primary:
+    :param secondary:
+    :return:
+    '''
 
-    grouped_sequence_frame = frame.groupby([sequenceColumn])
-    grouped_sequence_frame = grouped_sequence_frame.agg({sequenceColumn: 'size'})\
-                                                   .rename(columns={sequenceColumn: 'Occurrence'})\
+
+    pivot_frame = frame.groupby([primary, secondary]) \
+        .agg({primary: 'size'}) \
+        .rename(columns={primary: agg_col_name}) \
+        .reset_index() \
+        .pivot(index=primary, columns=secondary, values=agg_col_name) \
+        .fillna(0) \
+        .reset_index()
+
+    return pivot_frame
+
+def make_empty_pivot_frame(frame, primary, secondary,):
+    some_dumb_hash = str(random.randint(10000000, 99999999))
+    hashed_zero_col_name = "".join(["zeroes", some_dumb_hash])
+    dummy_frame = frame
+    dummy_frame[hashed_zero_col_name] = 0
+    pivot_frame = frame.pivot(index=primary, columns=secondary, values=hashed_zero_col_name)
+
+    return pivot_frame
+
+def make_columns_from_dict(dict, primary_col_name="primary", secondary_col_name="secondary"):
+    '''
+    given a dict of key : [values] return a dataframe representation of all key:value tuples
+
+    :param dict:
+    :param primary_col_name:
+    :param secondary_col_name:
+    :return:
+    '''
+    df = pd.DataFrame([(key, item) for key, val in dict.items() for item in val])
+
+    df.rename(columns={0:primary_col_name, 1:secondary_col_name}, inplace=True)
+    df.set_index(primary_col_name)
+
+    return df
+
+def create_aggregate_dataframe(frame, primary, columnName="Occurrence"):
+    grouped_sequence_frame = frame.groupby([primary])
+    grouped_sequence_frame = grouped_sequence_frame.agg({primary: 'size'}) \
+                                                   .rename(columns={primary: columnName}) \
                                                    .reset_index()
 
+    return grouped_sequence_frame
+
+def create_aggregate_sequence_dataframe(frame : pd.DataFrame, sequenceColumn, addColumn, *args, **kwargs) -> pd.DataFrame:
+
+    grouped_sequence_frame = create_aggregate_dataframe(frame, sequenceColumn, columnName='Occurrence')
 
 
-    agg_frame = frame.groupby([sequenceColumn, addColumn]) \
-                                 .agg({sequenceColumn: 'size'}) \
-                                 .rename(columns={sequenceColumn: 'Occurrence'}) \
-                                 .reset_index() \
-                                 .pivot(index=sequenceColumn, columns=addColumn, values='Occurrence') \
-                                 .fillna(0) \
-                                 .reset_index()
-
+    agg_frame = aggregate_and_pivot_dataframe_by_secondary_column(frame, sequenceColumn, addColumn, agg_col_name='Occurrence')
 
     final_frame = pd.merge(grouped_sequence_frame, agg_frame, on=sequenceColumn, how='left')
 
-    print(final_frame)
     return final_frame
+
+def make_full_occurrence_dataframe(frame, seq_to_regex_dict, pattern_list, sequenceColumn, *args, **kwargs):
+    '''
+    guarantee that no-appearance columns occur in a dataframe
+    :return:
+    '''
+    dummy_shell_dict = {seq: pattern_list for seq in seq_to_regex_dict.keys()}
+    pre_pivot_columns = make_columns_from_dict(dummy_shell_dict,
+                                               primary_col_name=sequenceColumn,
+                                               secondary_col_name="Pattern")
+
+    occurence_columns = make_columns_from_dict(seq_to_regex_dict,
+                                               primary_col_name=sequenceColumn,
+                                               secondary_col_name="Pattern")
+
+    aggregated_occurrence_df = create_aggregate_dataframe(occurence_columns, sequenceColumn, columnName='Occurrence')
+    pivoted_df = make_empty_pivot_frame(pre_pivot_columns, sequenceColumn, "Pattern")
+
+    # populate the shell dataframe with occurence
+    for key, patterns in seq_to_regex_dict.items():
+        for pattern in patterns:
+            pivoted_df.loc[key, pattern] = 1
+
+    final_frame = pd.merge(aggregated_occurrence_df, pivoted_df.reset_index(), on=sequenceColumn, how='left')
+
+    return final_frame
+
 
 def openfiles():
     root = Tk()
@@ -139,29 +208,39 @@ def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
 
     return new_df
 
-def create_anchor_match_dataframes(pattern_list, sequenceColumn, addColumn):
+def create_anchor_match_dataframes(pattern_list, input_dir, sequenceColumn, addColumn):
     #calling the first function
-    filegroup = openfiles()
+    #filegroup = openfiles()
+    filelist = return_filetype_list(input_dir, filetype=".csv")
     matchlist = {}
-    logger.info("returned filegroup was {}".format(filegroup))
+    logger.info("returned filegroup was {}".format(filelist))
     #Reading in the chosen csv file, selecting necessary columns, and adding it to a list
-    for file in filegroup:
+    for file in filelist:
         logger.info("returned file was {}".format(file))
         filename = os.path.split(file)[1]
         logger.info("split filename was {}".format(filename))
         matchlist[filename] = make_file_referenced_df_from_csv(file, sequenceColumn, addColumn)
     #Return peptide sequences that doesn't match the regex pattern
-    sieved_dataframes = {}
+    all_list = []
+    some_list = []
+    none_list = []
     for filename, df in matchlist.items():
-        all, some, none_df = create_match_dataframe(pattern_list, df, sequenceColumn)
+        all, some, none_df = create_match_dataframes(pattern_list, df, sequenceColumn)
         all[FILE_NAME_HEADER] = filename
         some[FILE_NAME_HEADER] = filename
         none_df[FILE_NAME_HEADER] = filename
 
+        all_list.append(all)
+        some_list.append(some)
+        none_list.append(none_df)
 
-    return sieved_dataframes
+    all_composite = pd.concat(all_list)
+    some_composite = pd.concat(some_list)
+    none_composite = pd.concat(none_list)
 
-def create_match_dataframe(pattern_list, df, sequenceColumn, all_criteria="pattern"):
+    return all_composite, some_composite, none_composite
+
+def create_match_dataframes(pattern_list, df, sequenceColumn, all_criteria="pattern"):
     sequenceList = set(df[sequenceColumn].unique())
     some_match_sequences = collections.defaultdict(set)
     none_match_sequences = set(df[sequenceColumn].unique())
@@ -176,11 +255,15 @@ def create_match_dataframe(pattern_list, df, sequenceColumn, all_criteria="patte
     if all_criteria == "sequence":
         match_against = sequenceList
 
-    all_match_sequences = [sequence for sequence, values in some_match_sequences.items()
-                           if values == match_against]
+    all_match_sequences = {sequence:values  for sequence, values in some_match_sequences.items()
+                           if values == match_against}
 
-    all_df = df[df[sequenceColumn].isin(all_match_sequences)]
+    all_df = df[df[sequenceColumn].isin(all_match_sequences.keys())]
+    if not all_df.empty:
+        all_df = make_full_occurrence_dataframe(all_df, all_match_sequences, pattern_list, sequenceColumn)
     some_df = df[df[sequenceColumn].isin(some_match_sequences.keys())]
+    if not some_df.empty:
+        some_df = make_full_occurrence_dataframe(some_df, some_match_sequences, pattern_list, sequenceColumn)
     none_df = df[df[sequenceColumn].isin(none_match_sequences)]
 
 
@@ -197,6 +280,7 @@ def write_sieved_dataframe_dict_to_csv(df_dict, outputpath, filename):
         named_df = df
         named_df[FILE_NAME_HEADER] = name
         collapsed_frame.append(named_df)
+    print("the collapsed dataframe head: {}".format(collapsed_frame.head))
 
     write_dataframe_to_csv(collapsed_frame, exportfile)
 
@@ -207,6 +291,9 @@ def write_sieved_dataframe_to_csv(dataframe, outputpath, filename):
     exportfile = os.path.join(outputpath, sieved_filename)
     write_dataframe_to_csv(dataframe, exportfile)
 
+def write_dataframe_to_csv_with_path(dataframe, path, filename):
+    exportfile = os.path.join(path, filename)
+    return write_dataframe_to_csv(dataframe, exportfile)
 
 def write_dataframe_to_csv(dataframe, filename):
     if not filename.endswith(".csv"):

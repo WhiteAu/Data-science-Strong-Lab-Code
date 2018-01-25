@@ -48,18 +48,22 @@ if cmd_args.output_dir != None:
     output_path= cmd_args.output_dir
 
 
-script_path = os.path.dirname(os.path.realpath(__file__))
-
-
 #(regex pattern, number of rows with data minus 2, name of the peptide sequence column, name of the protein group accessions column)
 #pattern for HLA-A11 is r'\b.[VIFY][MLFYIA]\w+[LIYVF].[KR]\b'
 #pattern for HLA-A24 is r'\b.[YF]\w+[LFI]\b'
-sieved_dataframes = fileutils.create_anchor_match_dataframes(r'\b.[VIFY][MLFYIA]\w+[LIYVF].[KR]\b', "Sequence", "Protein Group Accessions")
-logger.info("returned dataframes were: {}".format(sieved_dataframes))
+all, some, none = fileutils.create_anchor_match_dataframes([r'^[FL]',r'\b.[VIFY][MLFYIA]\w+[LIYVF].[KR]\b'],
+                                                             file_directory,
+                                                             config["DATA DESCRIPTOR"]["sequenceColumn"],
+                                                             config["DATA DESCRIPTOR"]["addColumn"])
+logger.info("returned dataframes were: all{}\nsome {}\nnone {}".format(all, some, none))
+
 
 if exe_mode == ExecutionType.PRODUCTION:
     logger.info("writing output to {}".format(output_path))
-    fileutils.write_sieved_dataframe_dict_to_csv(sieved_dataframes, output_path, "problem_2_example")
+    fileutils.write_dataframe_to_csv_with_path(all, output_path, "sieved_compilation_problem_2_all")
+    fileutils.write_dataframe_to_csv_with_path(some, output_path, "sieved_compilation_problem_2_some")
+    fileutils.write_dataframe_to_csv_with_path(none, output_path, "sieved_compilation_problem_2_none")
+
 
 
 

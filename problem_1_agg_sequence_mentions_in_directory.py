@@ -49,10 +49,6 @@ if cmd_args.output_dir != None:
     output_path= cmd_args.output_dir
 
 
-script_path = os.path.dirname(os.path.realpath(__file__))
-
-
-
 logger.info("matchlist called with file directory: {} output file: {} sequenceColumn: {}, addColumn: {}".format(file_directory,
                                                                                                                     output_path,
                                                                                                                     config["DATA DESCRIPTOR"]["sequenceColumn"],
