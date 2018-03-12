@@ -201,14 +201,17 @@ def openfiles():
     filepath = root.tk.splitlist(files)
     return filepath
 
-def make_file_referenced_df_from_csv(filename, sequenceColumn, addColumn):
+def make_file_referenced_df_from_csv(filename, sequenceColumn, *args, **kwargs):
+    column_list = [FILE_NAME_HEADER, sequenceColumn]
+    if "addColumn" in kwargs.keys():
+        column_list.append(kwargs['addColumn'])
     new_df = pd.read_csv(filename)
     new_df[FILE_NAME_HEADER] = os.path.split(filename)[1]
-    new_df = new_df[[FILE_NAME_HEADER, sequenceColumn, addColumn]]
+    new_df = new_df[column_list]
 
     return new_df
 
-def create_anchor_match_dataframes(pattern_list, input_dir, sequenceColumn, addColumn):
+def create_anchor_match_dataframes(pattern_list, input_dir, sequenceColumn, *args, **kwargs):
     #calling the first function
     #filegroup = openfiles()
     filelist = return_filetype_list(input_dir, filetype=".csv")
@@ -219,7 +222,7 @@ def create_anchor_match_dataframes(pattern_list, input_dir, sequenceColumn, addC
         logger.info("returned file was {}".format(file))
         filename = os.path.split(file)[1]
         logger.info("split filename was {}".format(filename))
-        matchlist[filename] = make_file_referenced_df_from_csv(file, sequenceColumn, addColumn)
+        matchlist[filename] = make_file_referenced_df_from_csv(file, sequenceColumn, *args, **kwargs)
     #Return peptide sequences that doesn't match the regex pattern
     all_list = []
     some_list = []
