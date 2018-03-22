@@ -248,6 +248,8 @@ def create_match_dataframes(pattern_list, df, sequenceColumn, all_criteria="patt
     some_match_sequences = collections.defaultdict(set)
     none_match_sequences = set(df[sequenceColumn].unique())
 
+    #ensure sequenceColumn doesn't blow up on empty values
+    df[sequenceColumn].fillna('', inplace=True)
     for pattern in pattern_list:
         sieved_df = df[df[sequenceColumn].str.contains(pattern)]
         for sequence in sieved_df[sequenceColumn].unique():
